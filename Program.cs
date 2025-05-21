@@ -1,10 +1,11 @@
-﻿using Luma.Services;
+﻿using Luma.Models;
+using Luma.Services;
 
 namespace Luma;
 
 class Program
 {
-    public static async Task Main(string[] args)
+    public static async Task Main()
     {
         const string username = "Matheus_Miranda";
         const string email = "email@email.com";
@@ -27,7 +28,7 @@ class Program
             Console.WriteLine("\n------ 3. List Probes ------\n");
             var listProbes = await client.GetProbesAsync(accessToken);
 
-            if (listProbes is not null && listProbes.Any())
+            if (listProbes is not null)
             {
 
                 foreach (var probe in listProbes)
@@ -44,6 +45,21 @@ class Program
             {
                 Console.WriteLine("Erro ao encontrar as Probes! ");
             }
+
+            // Acessa o primeiro probe da lista
+            var probe01 = listProbes[0];
+
+            Console.WriteLine("\n------ 4. SyncAsync ------\n");
+            await client.SyncAsync(accessToken, probe01.Id, probe01.Encoding);
+
+            Console.WriteLine("\n------ 5. GetProbeNowAsync ------\n");
+            var probeNow = await client.GetProbeNowAsync(accessToken, probe01.Id, probe01.Encoding);
+
+            if (probeNow is not null) 
+            { var probeNowDateTime = new DateTimeOffset(probeNow.Value, TimeSpan.Zero);
+                Console.WriteLine($"Horarrio atual da probe: {probeNowDateTime} UTC");
+            }
+
         }
         catch (Exception ex)
         {

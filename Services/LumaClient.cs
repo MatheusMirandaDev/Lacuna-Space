@@ -1,4 +1,5 @@
 ﻿using Luma.Models;
+using Luma.Utils;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -54,7 +55,7 @@ public class LumaClient
         return result.AccessToken;
     }
 
-    // [3.LIST PROBES] 
+    // [3.LIST PROBES] - método para listar as probes
     public async Task<List<Probe>?> GetProbesAsync(string acessToken)
     {
         _httpClient.DefaultRequestHeaders.Authorization =
@@ -83,4 +84,80 @@ public class LumaClient
         }
 
     }
+
+    // [4. TIMESTAMP] - método para decodificar o timestamp
+    public async Task<(long Offset, long RoundTrip)?> SyncAsync(string accessToken, string probeId,  string encoding) 
+    { 
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var t0 = DateTimeOffset.UtcNow.Ticks;
+
+        var response = await _httpClient.PostAsync($"api/probe/{probeId}/sync", null);
+        var t3 = DateTimeOffset.UtcNow.Ticks; //deve ser capturado imediatamente após a resposta da API
+
+        var result = await response.Content.ReadFromJsonAsync<SyncResponse>();
+
+        if (result is null)
+        {
+            Console.WriteLine($"Erro ao Sincronizar: {result?.Code} - {result?.Message}");
+            return null;
+        }
+
+        var t1 = Timestamp.DecodeTimestamp(result.T1, encoding);
+        var t2 = Timestamp.DecodeTimestamp(result.T2, encoding);
+
+        var offset = ((t1 - t0) + (t2 - t3)) / 2;
+        var roundTrip = (t3 - t0) - (t2 - t1) ;
+
+        Console.WriteLine($"Offset: {offset} ticks ({TimeSpan.FromTicks(Math.Abs(offset)).TotalMilliseconds} ms)");
+        Console.WriteLine($"RoundTrip: {roundTrip} ticks ({TimeSpan.FromTicks(roundTrip).TotalMilliseconds} ms)");
+        Console.WriteLine();
+
+        return (offset, roundTrip);
+    }
+
+    // [5.SYNC CLOCK] - método para sincronizar o relógio das probes com o relógio do sistema
+    public async Task<long?> GetProbeNowAsync(string accessToken, String probeId, string enconding)
+    {
+        const int maxAttempts = 50;
+        const long maxRoundTripTicks = 5 * TimeSpan.TicksPerMillisecond;
+
+        long? bestOffset = null;
+        long bestRoundTrip = long.MaxValue;
+
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            var result = await SyncAsync(accessToken, probeId, enconding);
+            if (result is null) continue;
+
+            var (offset, roundTrip) = result.Value;
+
+            if(roundTrip < bestRoundTrip)
+            {
+                bestRoundTrip = roundTrip;
+                bestOffset = offset;
+            }
+
+            if (bestRoundTrip <= maxRoundTripTicks)
+            {
+                Console.WriteLine($"Round-trip perfeito: {TimeSpan.FromTicks(bestRoundTrip).TotalMilliseconds} ms (perfeito)");
+                break;
+            }
+            Console.WriteLine($"Tentativa { i + 1}: roundtrip {TimeSpan.FromTicks(roundTrip).TotalMilliseconds} ms (ainda está alto)");
+        }
+
+        if (bestOffset is null)
+        {
+            Console.WriteLine("Não foi possivel fazer a sincronização");
+            return null;
+        }
+
+        var probeNow = DateTimeOffset.UtcNow.Ticks + bestOffset.Value;
+        Console.WriteLine($"probeNow: {new DateTimeOffset(probeNow, TimeSpan.Zero)} UTC");
+
+        return probeNow;
+    }
+
+
 }
