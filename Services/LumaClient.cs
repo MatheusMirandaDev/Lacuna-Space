@@ -1,4 +1,5 @@
 ﻿using Luma.Models;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
@@ -22,7 +23,7 @@ public class LumaClient
            new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
-    // método para iniciar o processo de autenticação
+    // [2.START] - método para iniciar o processo de autenticação
     public async Task<string?> StartAsync(string username, string email)
     {
         // cria o objeto de requisição
@@ -39,15 +40,47 @@ public class LumaClient
         var result = await response.Content.ReadFromJsonAsync<StartResponse>();
 
         // verifica se a resposta é válida
-        if (result is not null && result.Code == "Success")
+        if (result is null )
         {
-            // retorna o token de acesso
-            return result.AccessToken;
-        }
-
         // se a resposta não é válida, exibe o erro
-        Console.WriteLine($"Erro: {result?.Code} - {result?.Message}");
-        return null;
+            Console.WriteLine($"Erro: {result?.Code} - {result?.Message}");
+            return null;
+        }
+        Console.WriteLine($"Code: {result.Code}");
+        Console.WriteLine();
+        Console.WriteLine($"Token: {result.AccessToken}");
+
+        // retorna o token de acesso
+        return result.AccessToken;
+    }
+
+    // [3.LIST PROBES] 
+    public async Task<List<Probe>?> GetProbesAsync(string acessToken)
+    {
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", acessToken);
+
+        var response = await _httpClient.GetAsync("api/probe");
+        if (response.IsSuccessStatusCode)
+        {
+            // faz a leitura do Json
+            var result = await response.Content.ReadFromJsonAsync<ProbeResponse>();
+            
+            Console.WriteLine($"Code: {result?.Code}");
+            if (result.Code == "Success")
+            {
+                Console.WriteLine($"\nProbes encontradas: {result.Probes?.Count}");
+                return result.Probes;
+            }
+
+            Console.WriteLine("Erro ao buscar probes.");
+            return null;
+        }
+        else
+        {
+            Console.WriteLine($"Erro HTTP: {response.StatusCode}");
+            return null;
+        }
 
     }
 }
