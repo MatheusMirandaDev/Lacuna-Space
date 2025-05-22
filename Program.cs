@@ -20,11 +20,11 @@ class Program
         try
         {
             // Inicia a autenticação e obtém o token de acesso
-            Console.WriteLine("------ 2. Start API ------\n");
+            Console.WriteLine("-------- 2. Start API --------\n");
             var accessToken = await client.StartAsync(username, email); // armazena o token de acesso
 
             // Solicita a lista de sondas (probes) disponíveis usando o token de acesso
-            Console.WriteLine("\n------ 3. List Probes ------\n");
+            Console.WriteLine("\n-------- 3. List Probes --------\n");
 
             // salva a lista de probes retornada pela API
             var listProbes = await client.GetProbesAsync(accessToken);
@@ -49,11 +49,12 @@ class Program
                 Console.WriteLine("Erro ao encontrar as Probes! ");
             }
 
+            Console.WriteLine($"\n\n-------- 5. Clock Synchronization --------");
             // Para cada sonda, executa o processo de sincronização do relógio
             foreach (var probe in listProbes)
             {
                
-                Console.WriteLine($"\n------ 5. Sincronizando a sonda {probe.Name} ------\n");
+                Console.WriteLine($"\n------ Sincronizando a sonda {probe.Name} ------\n");
 
                 // armazena o horário sincronizado atual da sonda
                 var probeNow = await client.GetProbeNowAsync(accessToken, probe.Id, probe.Encoding);
@@ -70,6 +71,19 @@ class Program
                     Console.WriteLine($"Falha ao sincronizar a sonda {probe.Name}.");
                 }
             }
+
+            Console.WriteLine("-------- 6. Jobs --------\n");
+            var job = await client.TakeJobAsync(accessToken);
+
+            if (job is not null)
+            {
+                Console.WriteLine($"Job ID: {job.Id}");
+                Console.WriteLine($"Nome da probe: {job.ProbeName}");
+            }
+            else {
+                Console.WriteLine("Nenhum job encontrado!");
+            }
+
         }
         catch (Exception ex)
         {

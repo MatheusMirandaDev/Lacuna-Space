@@ -42,9 +42,9 @@ public class LumaClient
         var result = await response.Content.ReadFromJsonAsync<StartResponse>();
 
         // verifica se a resposta é válida
-        if (result is null )
+        if (result is null)
         {
-        // se a resposta não é válida, exibe o erro
+            // se a resposta não é válida, exibe o erro
             Console.WriteLine($"Erro: {result?.Code} - {result?.Message}");
             return null;
         }
@@ -101,7 +101,7 @@ public class LumaClient
     }
 
     // [4. TIMESTAMP] - método para decodificar o timestamp
-    public async Task<(long Offset, long RoundTrip)?> SyncAsync(string accessToken, string probeId,  string encoding) 
+    public async Task<(long Offset, long RoundTrip)?> SyncAsync(string accessToken, string probeId, string encoding)
     {
         // passa o token de acesso no cabeçalho da requisição HTTP (autenticação Bearer)
         _httpClient.DefaultRequestHeaders.Authorization =
@@ -133,7 +133,7 @@ public class LumaClient
 
         // calcula o offset e o round-trip time
         var offset = ((t1 - t0) + (t2 - t3)) / 2;
-        var roundTrip = (t3 - t0) - (t2 - t1) ;
+        var roundTrip = (t3 - t0) - (t2 - t1);
 
         return (offset, roundTrip);
     }
@@ -150,9 +150,6 @@ public class LumaClient
         // variável para armazenar o melhor offset e round-trip enconrado
         long? bestOffset = null;
         long bestRoundTrip = long.MaxValue;
-
-        // exibe a mensagem para informar que a sincronização está em andamento
-        Console.WriteLine($"Sincronizando ...\n");
 
         // Loop de tentativas para sincronizar o relógio, buscando o menor round-trip possível
         for (int i = 0; i < maxAttempts; i++)
@@ -177,7 +174,8 @@ public class LumaClient
         if (bestRoundTrip <= maxRoundTripTicks)
         {
             Console.WriteLine($"Round-trip perfeito: {TimeSpan.FromTicks(bestRoundTrip).TotalMilliseconds} ms");
-        } else
+        }
+        else
         {
             // Se o round-trip não for perfeito, exibe a mensagem informando o melhor round-trip encontrado
             Console.WriteLine($"** Melhor round-trip foi: {TimeSpan.FromTicks(bestRoundTrip).TotalMilliseconds} ms (acima do ideal) **");
@@ -195,5 +193,79 @@ public class LumaClient
         Console.WriteLine($"Horário atual da probe: {new DateTimeOffset(probeNow, TimeSpan.Zero)} UTC");
 
         return probeNow;
+    }
+
+    // [6. JOBS] - método para pegar um job
+    public async Task<Job?> TakeJobAsync(string accessToken)
+    {
+        // passa o token de acesso no cabeçalho da requisição HTTP (autenticação Bearer)
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        // faz uma requisição POST para o endpoint "api/job/take"
+        var response = await _httpClient.PostAsync("api/job/take", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Console.WriteLine($"Erro ao pegar Job: {response.StatusCode}");
+            return null;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<TakeJobResponse>();
+
+        if (result is null)
+        {
+            Console.WriteLine($"Falha ao pegar o Job: {result?.Code} - {result?.Message}");
+            return null;
+        }
+
+        return result?.Job;
+    }
+
+    public async Task<bool> CheckJobAsync(string accessToken, string jobId, string probeNowEncoded, long roundTrip)
+    {
+        // passa o token de acesso no cabeçalho da requisição HTTP (autenticação Bearer)
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var request = new CheckJobRequest
+        {
+            ProbeNow = probeNowEncoded,
+            RoundTrip = roundTrip
+        };
+
+        // faz uma requisição POST para o endpoint "api/job/take"
+        var response = await _httpClient.PostAsJsonAsync($"api/job/{jobId}/check", request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Console.WriteLine($"Erro ao verificar o Job {jobId}: {response.StatusCode}");
+            return false;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<CheckJobResponse>();
+
+
+        if (result is null)
+        {
+            Console.WriteLine($"Resposta nula na verificação do Job {jobId}.");
+            return false;
+        }
+
+        Console.WriteLine($"CheckJob Status: {result.Code} - {result.Message}");
+
+        if (result.Code == "Done")
+        {
+            Console.WriteLine("Job concluido com sucesso!");
+            return true;
+        }
+
+        if (result.Code == "Fail")
+        {
+            Console.WriteLine("Job falhou. É necessário reiniciar o fluxo.");
+            throw new Exception("Job falhou. Reinicie o processo.");
+        }
+
+        return false;
     }
 }
