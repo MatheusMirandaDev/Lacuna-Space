@@ -110,25 +110,23 @@ public class LumaClient
         var offset = ((t1 - t0) + (t2 - t3)) / 2;
         var roundTrip = (t3 - t0) - (t2 - t1) ;
 
-        Console.WriteLine($"Offset: {offset} ticks ({TimeSpan.FromTicks(Math.Abs(offset)).TotalMilliseconds} ms)");
-        Console.WriteLine($"RoundTrip: {roundTrip} ticks ({TimeSpan.FromTicks(roundTrip).TotalMilliseconds} ms)");
-        Console.WriteLine();
-
         return (offset, roundTrip);
     }
 
-    // [5.SYNC CLOCK] - método para sincronizar o relógio das probes com o relógio do sistema
-    public async Task<long?> GetProbeNowAsync(string accessToken, String probeId, string enconding)
+    // [5.SYNC CLOCK] - método para sincronizar os relógios 
+    public async Task<long?> GetProbeNowAsync(string accessToken, String probeId, string encoding)
     {
-        const int maxAttempts = 50;
+        const int maxAttempts = 10;
         const long maxRoundTripTicks = 5 * TimeSpan.TicksPerMillisecond;
 
         long? bestOffset = null;
         long bestRoundTrip = long.MaxValue;
 
+        Console.WriteLine($"Sincronizando ...\n");
+
         for (int i = 0; i < maxAttempts; i++)
         {
-            var result = await SyncAsync(accessToken, probeId, enconding);
+            var result = await SyncAsync(accessToken, probeId, encoding);
             if (result is null) continue;
 
             var (offset, roundTrip) = result.Value;
@@ -138,13 +136,13 @@ public class LumaClient
                 bestRoundTrip = roundTrip;
                 bestOffset = offset;
             }
-
-            if (bestRoundTrip <= maxRoundTripTicks)
-            {
-                Console.WriteLine($"Round-trip perfeito: {TimeSpan.FromTicks(bestRoundTrip).TotalMilliseconds} ms (perfeito)");
-                break;
-            }
-            Console.WriteLine($"Tentativa { i + 1}: roundtrip {TimeSpan.FromTicks(roundTrip).TotalMilliseconds} ms (ainda está alto)");
+        }
+        if (bestRoundTrip <= maxRoundTripTicks)
+        {
+            Console.WriteLine($"Round-trip perfeito: {TimeSpan.FromTicks(bestRoundTrip).TotalMilliseconds} ms");
+        } else
+        {
+            Console.WriteLine($"** Melhor round-trip foi: {TimeSpan.FromTicks(bestRoundTrip).TotalMilliseconds} ms (acima do ideal) **");
         }
 
         if (bestOffset is null)

@@ -46,19 +46,22 @@ class Program
                 Console.WriteLine("Erro ao encontrar as Probes! ");
             }
 
-            // Acessa o primeiro probe da lista
-            var probe01 = listProbes[0];
+            foreach (var probe in listProbes)
+            {
+                Console.WriteLine($"\n------ Sincronizando a sonda {probe.Name} ------\n");
+                var probeNow = await client.GetProbeNowAsync(accessToken, probe.Id, probe.Encoding);
 
-            Console.WriteLine("\n------ 4. SyncAsync ------\n");
-            await client.SyncAsync(accessToken, probe01.Id, probe01.Encoding);
-
-            Console.WriteLine("\n------ 5. GetProbeNowAsync ------\n");
-            var probeNow = await client.GetProbeNowAsync(accessToken, probe01.Id, probe01.Encoding);
-
-            if (probeNow is not null) 
-            { var probeNowDateTime = new DateTimeOffset(probeNow.Value, TimeSpan.Zero);
-                Console.WriteLine($"Horarrio atual da probe: {probeNowDateTime} UTC");
+                if (probeNow is not null) 
+                { 
+                    var probeNowDateTime = new DateTimeOffset(probeNow.Value, TimeSpan.Zero);
+                    Console.WriteLine($"Horário atual da probe: {probeNowDateTime} UTC");
+                }
+                else
+                {
+                    Console.WriteLine($"Falha ao sincronizar a sonda {probe.Name}.");
+                }
             }
+            
 
         }
         catch (Exception ex)
