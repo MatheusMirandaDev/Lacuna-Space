@@ -25,4 +25,16 @@ public class Timestamp
             _ => throw new NotSupportedException($"Encoding Invalido: {encoding}")
         };
     }
+
+    public static string EncodeTimestamp(long ticks, string encoding)
+    {
+        return encoding switch
+        {
+            "Iso8601" => new DateTimeOffset(ticks, TimeSpan.Zero).ToString("o"),
+            "Ticks" => ticks.ToString(),
+            "TicksBinary" => Convert.ToBase64String(BitConverter.GetBytes(ticks)),
+            "TicksBinaryBigEndian" => Convert.ToBase64String(BitConverter.GetBytes(ticks).Reverse().ToArray()),
+            _ => throw new NotSupportedException($"Encoding não suportado: {encoding}"),
+        };
+    }
 }

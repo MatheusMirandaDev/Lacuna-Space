@@ -222,50 +222,25 @@ public class LumaClient
         return result?.Job;
     }
 
-    public async Task<bool> CheckJobAsync(string accessToken, string jobId, string probeNowEncoded, long roundTrip)
+    // [7. CHECK JOB] - método para enviar o resultado do job
+    public async Task<CheckJobResponse?> CheckJobAsync(string accessToken, string jobId, CheckJobRequest request)
     {
         // passa o token de acesso no cabeçalho da requisição HTTP (autenticação Bearer)
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var request = new CheckJobRequest
-        {
-            ProbeNow = probeNowEncoded,
-            RoundTrip = roundTrip
-        };
-
-        // faz uma requisição POST para o endpoint "api/job/take"
+        // faz uma requisição POST para o endpoint "api/job/{id}/check" enviando o corpo da requisição
         var response = await _httpClient.PostAsJsonAsync($"api/job/{jobId}/check", request);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"Erro ao verificar o Job {jobId}: {response.StatusCode}");
-            return false;
-        }
-
+        // Lê e desserializa o conteúdo da resposta JSON para um objeto do tipo CheckJobResponse
         var result = await response.Content.ReadFromJsonAsync<CheckJobResponse>();
-
 
         if (result is null)
         {
-            Console.WriteLine($"Resposta nula na verificação do Job {jobId}.");
-            return false;
+            Console.WriteLine("Erro ao enviar o resultado do job!");
+            return null;
         }
 
-        Console.WriteLine($"CheckJob Status: {result.Code} - {result.Message}");
-
-        if (result.Code == "Done")
-        {
-            Console.WriteLine("Job concluido com sucesso!");
-            return true;
-        }
-
-        if (result.Code == "Fail")
-        {
-            Console.WriteLine("Job falhou. É necessário reiniciar o fluxo.");
-            throw new Exception("Job falhou. Reinicie o processo.");
-        }
-
-        return false;
+        return result;
     }
 }

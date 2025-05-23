@@ -1,5 +1,6 @@
 ﻿using Luma.Models;
 using Luma.Services;
+using Luma.Utils;
 
 namespace Luma;
 
@@ -57,13 +58,13 @@ class Program
                 Console.WriteLine($"\n------ Sincronizando a sonda {probe.Name} ------\n");
 
                 // armazena o horário sincronizado atual da sonda
-                var probeNow = await client.GetProbeNowAsync(accessToken, probe.Id, probe.Encoding);
+                var probeNowTicks = await client.GetProbeNowAsync(accessToken, probe.Id, probe.Encoding);
 
                 // Verifica se a resposta da sincronização não é nula
-                if (probeNow is not null) 
+                if (probeNowTicks is not null) 
                 {
                     // Converte o horário sincronizado (ticks) para DateTimeOffset (UTC)
-                    var probeNowDateTime = new DateTimeOffset(probeNow.Value, TimeSpan.Zero);
+                    var probeNowDateTime = new DateTimeOffset(probeNowTicks.Value, TimeSpan.Zero);
                 }
                 else
                 {
@@ -72,24 +73,71 @@ class Program
                 }
             }
 
-            Console.WriteLine("-------- 6. Jobs --------\n");
-            var job = await client.TakeJobAsync(accessToken);
+            Console.WriteLine("\n-------- 6. Jobs --------\n");
+            bool done = false;
+            while (!done)
+            { 
+                var job = await client.TakeJobAsync(accessToken);
 
-            if (job is not null)
-            {
-                Console.WriteLine($"Job ID: {job.Id}");
-                Console.WriteLine($"Nome da probe: {job.ProbeName}");
-            }
-            else {
-                Console.WriteLine("Nenhum job encontrado!");
-            }
+                if (job is not null)
+                {
 
+                    // Encontra a probe do job pelo nome
+                    var jobProbe = listProbes?.FirstOrDefault(p => p.Name == job.ProbeName);
+                    if (jobProbe == null)
+                    {
+                        Console.WriteLine("Probe do job não encontrada!");
+                        break;
+                    }
+                    Console.WriteLine($"\n------ Execução o job para a Probe: {jobProbe.Name} ------\n");
+                    Console.WriteLine($"Job ID: {job.Id}");
+
+                    var syncResult = await client.SyncAsync(accessToken, jobProbe.Id, jobProbe.Encoding);
+
+                    if (syncResult is null)
+                    {
+                        Console.WriteLine("Falha ao sincronizar a probe do job!");
+                        break;
+                    }
+
+                    var (offset, roundTrip) = syncResult.Value;
+                    var probeNowTicks = DateTimeOffset.UtcNow.Ticks + offset;
+                    var probeNowStr = Timestamp.EncodeTimestamp(probeNowTicks, jobProbe.Encoding);
+
+                    if (string.IsNullOrEmpty(probeNowStr))
+                    {
+                        Console.WriteLine("Erro ao codificar o timestamp da probe do job!");
+                        return;
+                    }
+
+                    var checkRequest = new CheckJobRequest
+                    {
+                        ProbeNow = probeNowStr,
+                        RoundTrip = roundTrip
+                    };
+
+                    var checkResponse = await client.CheckJobAsync(accessToken, job.Id, checkRequest);
+                    Console.WriteLine($"CheckJob code: {checkResponse?.Code} - {checkResponse?.Message}");
+
+                    if (checkResponse?.Code == "Done")
+                    {
+                        Console.WriteLine("\n-----------------------------------\n");
+                        Console.WriteLine("Código de resposta == 'Done'");
+                        Console.WriteLine("Você passou!");
+                        done = true;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Nenhum job encontrado!");
+                    break;
+                }
+            }
         }
         catch (Exception ex)
         {
             // Se ocorrer um erro, exibe a mensagem de erro
             Console.WriteLine($"Erro: {ex.Message}");
         }
-
     }
 }
