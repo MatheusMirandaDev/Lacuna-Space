@@ -34,8 +34,8 @@ public class LumaClient
             Email = email
         };
 
-        // Faz uma requisição POST para o endpoint "api/start"
-        var response = await _httpClient.PostAsJsonAsync("api/start", request);
+        // Faz uma requisição POST para o endpoint "api/start/2" para inicar o nivel extra
+        var response = await _httpClient.PostAsJsonAsync("api/start/2", request);
 
         // Lê e desserializa o conteúdo da resposta JSON para um objeto do tipo StartResponse
 
