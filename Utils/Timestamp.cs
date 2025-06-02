@@ -26,14 +26,25 @@ public class Timestamp
         };
     }
 
+    // Método para codificar o timestamp com base no tipo de codificação informado
     public static string EncodeTimestamp(long ticks, string encoding)
     {
+        // seleciona o tipo de codificação com base no encoding informado
         return encoding switch
         {
+            // Codifica os ticks no formato ISO8601
             "Iso8601" => new DateTimeOffset(ticks, TimeSpan.Zero).ToString("o"),
+
+            // Codifica os ticks como string numérica
             "Ticks" => ticks.ToString(),
+
+            // Codifica os ticks no formato binário little-endian em Base64
             "TicksBinary" => Convert.ToBase64String(BitConverter.GetBytes(ticks)),
+
+            // Codifica os ticks no formato binário big-endian em Base64
             "TicksBinaryBigEndian" => Convert.ToBase64String(BitConverter.GetBytes(ticks).Reverse().ToArray()),
+
+            // Lança exceção se o encoding não for suportado
             _ => throw new NotSupportedException($"Encoding não suportado: {encoding}"),
         };
     }

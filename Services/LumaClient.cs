@@ -34,8 +34,8 @@ public class LumaClient
             Email = email
         };
 
-        // Faz uma requisição POST para o endpoint "api/start/2" para inicar o nivel extra
-        var response = await _httpClient.PostAsJsonAsync("api/start/2", request);
+        // Faz uma requisição POST para o endpoint "api/start"
+        var response = await _httpClient.PostAsJsonAsync("api/start", request);
 
         // Lê e desserializa o conteúdo da resposta JSON para um objeto do tipo StartResponse
 
@@ -222,7 +222,7 @@ public class LumaClient
         return result?.Job;
     }
 
-    // [7. CHECK JOB] - método para enviar o resultado do job
+    // [6. CHECK JOB] - método para enviar o resultado do job
     public async Task<CheckJobResponse?> CheckJobAsync(string accessToken, string jobId, CheckJobRequest request)
     {
         // passa o token de acesso no cabeçalho da requisição HTTP (autenticação Bearer)
